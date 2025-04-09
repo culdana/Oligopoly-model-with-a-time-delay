@@ -1,4 +1,4 @@
-(* Evolution function for the oligopoly system with memory *)
+(* Evolution function for the oligopoly system*)
 Fun[v_] := Flatten[
   {
     (* Firms update output based on past outputs and delay term *)
