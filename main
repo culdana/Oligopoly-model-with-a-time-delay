@@ -1,0 +1,72 @@
+(* Evolution function for the oligopoly system with memory *)
+Fun[v_] := Flatten[
+  {
+    (* Firms update output based on past outputs and delay term *)
+    Table[
+      Max[0, a1*de/(2*be) + (1 - de)*v[[j]] - 
+        de/2*Sum[v[[nfirme + i*T]], {i, 1, nfirme}] + 
+        de/2*v[[nfirme + j*T]]], 
+      {j, 1, nfirme}
+    ],
+    
+    (* Append memory states *)
+    Table[
+      {v[[j]], Table[v[[nfirme + (j - 1)*T + k - 1]], {k, 2, T}]}, 
+      {j, 1, nfirme}
+    ]
+  }
+]
+
+(* Random small initial condition *)
+Q0 = Table[RandomReal[{0, 0.0001}], {i, 1, nfirme + nfirme*T}]
+
+(* Jacobian matrix computation for Lyapunov exponent calculation *)
+JacobianMtx[funs_List, vars_List] := Outer[D, funs, vars]
+
+(* Lyapunov Exponents function *)
+LCEsD[f_, initcond_, K_, trans_ : 0] := 
+ Module[{opt, n, a, J, s, q, r, lces},
+   n = Length[initcond];
+   x = Array[a, n];
+   J[y_List] := JacobianMtx[f[x], x] /. Thread[x -> y];
+   x0 = Nest[f, N[initcond], trans];
+   {q, r} = QRDecomposition[J[x0]];
+   s = {};    
+   Do[
+     x0 = f[x0];
+     {q, r} = QRDecomposition[J[x0] . Transpose[q]];
+     s = Append[s, Table[r[[i, i]], {i, n}]],
+     {K}];
+   lces = Sort[Re[Apply[Plus, Log[s]]]/K, Greater];
+   Return[lces]
+ ]
+
+(* Parameters *)
+M = 1000;        (* Number of delay steps *)
+trans = 10000;   (* Transition time, discarded in plots *)
+Num = 300;       (* Number of displayed iterations *)
+
+(* Generate bifurcation diagram for delay parameter δ *)
+bif = {};
+For[k = 1, k <= M, k++,
+ de = k/M;
+ Q1 = Nest[Fun, Q0, trans];
+ sol = NestList[Fun, Q1, Num];
+ bif = Join[bif, Table[{de, sol[[k, 1]]}, {k, 1, Num}]]
+]
+
+(* Generate Lyapunov exponents for each δ *)
+lyap = {};
+For[k = 1, k <= M, k++,
+ de = k/M;
+ lyap = Append[lyap, {de, LCEsD[Fun, Q0, 2000, 200][[1]]}]
+]
+
+(* Plot the bifurcation diagram *)
+bifplot = ListPlot[
+  bif, 
+  PlotRange -> {{0, 1}, All}, 
+  Frame -> True, 
+  PlotStyle -> PointSize[0.0018], 
+  AspectRatio -> 1/2
+]
